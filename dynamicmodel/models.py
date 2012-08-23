@@ -13,6 +13,21 @@ class DynamicModel(models.Model):
 
     extra_fields = JSONField(editable=False, default="{}")
 
+    def __init__(self, *args, **kwargs):
+        super(DynamicModel, self).__init__(*args, **kwargs)
+        self.get_schema()
+        self._sync_with_schema()
+
+    def _sync_with_schema(self):
+        schema_extra_fields = self.get_extra_fields_names()
+        clear_field = [field_name for field_name in self.extra_fields \
+            if field_name not in schema_extra_fields]
+
+        for el in clear_field:
+            del self.extra_fields[el]
+
+        return bool(clear_field)
+
     def get_extra_field_value(self, key):
         if key in self.extra_fields:
             return self.extra_fields[key]
