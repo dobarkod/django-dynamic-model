@@ -3,6 +3,7 @@ from django import forms
 from django.contrib.contenttypes.models import ContentType
 from django.core.validators import RegexValidator
 from .fields import JSONField
+from django.core.exceptions import ValidationError
 
 
 class DynamicModel(models.Model):
@@ -11,6 +12,21 @@ class DynamicModel(models.Model):
         abstract = True
 
     extra_fields = JSONField(editable=False, default="{}")
+
+    def __init__(self, *args, **kwargs):
+        super(DynamicModel, self).__init__(*args, **kwargs)
+        self.get_schema()
+        self._sync_with_schema()
+
+    def _sync_with_schema(self):
+        schema_extra_fields = self.get_extra_fields_names()
+        clear_field = [field_name for field_name in self.extra_fields \
+            if field_name not in schema_extra_fields]
+
+        for el in clear_field:
+            del self.extra_fields[el]
+
+        return bool(clear_field)
 
     def get_extra_field_value(self, key):
         if key in self.extra_fields:
@@ -29,10 +45,10 @@ class DynamicModel(models.Model):
     def get_extra_fields(self):
         _schema = self.get_schema()
         for field in _schema.fields.all():
-            yield field.name, field.field_type, field.required
+            yield field.name, field.verbose_name, field.field_type, field.required
 
     def get_extra_fields_names(self):
-        return [name for name, field_type, required in self.get_extra_fields()]
+        return [name for name, verbose_name, field_type, required in self.get_extra_fields()]
 
     def get_schema(self):
         if not hasattr(self, '_schema'):
@@ -84,18 +100,20 @@ class DynamicForm(forms.ModelForm):
             raise ValueError("DynamicForm.Meta.model must be inherited from DynamicModel")
 
         if self.instance and hasattr(self.instance, 'get_extra_fields'):
-            for name, field_type, req in self.instance.get_extra_fields():
+            for name, verbose_name, field_type, req in self.instance.get_extra_fields():
                 field_mapping_case = dict(self.field_mapping)[field_type]
                 self.fields[name] = field_mapping_case['field'](required=req,
                     widget=field_mapping_case.get('widget'),
-                    initial=self.instance.get_extra_field_value(name))
+                    initial=self.instance.get_extra_field_value(name),
+                    label=verbose_name.capitalize() if verbose_name else \
+                        " ".join(name.split("_")).capitalize())
 
     def save(self, force_insert=False, force_update=False, commit=True):
         m = super(DynamicForm, self).save(commit=False)
 
         extra_fields = {}
 
-        extra_fields_names = [name for name, field_type, req \
+        extra_fields_names = [name for name, verbose_name, field_type, req \
             in self.instance.get_extra_fields()]
 
         for cleaned_key in self.cleaned_data.keys():
@@ -134,8 +152,27 @@ class DynamicSchemaField(models.Model):
     schema = models.ForeignKey(DynamicSchema, related_name='fields')
     name = models.CharField(max_length=100, validators=[RegexValidator(r'^[\w]+$',
         message="Name should contain only alphanumeric characters and underscores.")])
+    verbose_name = models.CharField(max_length=100, null=True, blank=True)
     field_type = models.CharField(max_length=100, choices=FIELD_TYPES)
     required = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super(DynamicSchemaField, self).save(*args, **kwargs)
+
+    def clean(self):
+
+        if not self.id:
+            return
+
+        old_model = DynamicSchemaField.objects.get(pk=self.id)
+
+        fields = [f.name for f in DynamicSchemaField._meta.fields]
+        fields.remove('verbose_name')
+
+        for field_name in fields:
+            if old_model.__dict__.get(field_name) != self.__dict__.get(field_name):
+                raise ValidationError("%s value cannot be modified")
 
     def __unicode__(self):
         return "%s - %s" % (self.schema, self.name)

@@ -5,6 +5,7 @@ Tests for DynamicModel, DynamicModelWithSchema and DynamicForm
 from django.test import TestCase
 from .models import DynamicModel, DynamicForm, DynamicSchemaField
 from django.db import models
+from django.core.exceptions import ValidationError
 
 
 class TestModel(DynamicModel):
@@ -146,6 +147,44 @@ class DynamicModelTest(TestCase):
 
         model.about = "about text"
         self.assertNotIn('about', model.extra_fields)
+
+    def test_rename(self):
+
+        model = TestModel()
+
+        DynamicSchemaField.objects.create(schema=model.get_schema(),
+            name='old_field', field_type='CharField')
+
+        model.old_field = "old field value"
+
+        dsf = DynamicSchemaField.objects.get(schema=model.get_schema(),
+            name='old_field', field_type='CharField')
+        dsf.name = 'new_field'
+
+        self.assertRaises(ValidationError, dsf.save)
+
+    def test_delete_schema_field(self):
+
+        model = TestModel()
+
+        f1 = DynamicSchemaField.objects.create(schema=model.get_schema(),
+            name='field_one', field_type='CharField')
+        DynamicSchemaField.objects.create(schema=model.get_schema(),
+            name='field_two', field_type='CharField')
+
+        model.field_one = "field one"
+        model.field_two = "field two"
+        model.save()
+
+        f1.delete()
+
+        fresh_model = TestModel.objects.get(pk=model.id)
+
+        # attr 'field_one' does not exist anymore because related
+        # db entry was deleted
+        self.assertFalse(hasattr(fresh_model, 'field_one'))
+        # attr 'field_two' still exists
+        self.assertTrue(hasattr(fresh_model, 'field_two'))
 
 
 # testing DynamicModel and DynamicForm
