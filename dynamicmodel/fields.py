@@ -110,6 +110,6 @@ class JSONCharField(JSONFieldBase, models.CharField):
 
 try:
     from south.modelsinspector import add_introspection_rules
-    add_introspection_rules([], ["^jsonfield\.fields\.(JSONField|JSONCharField)"])
+    add_introspection_rules([], ["^dynamicmodel\.fields\.(JSONField|JSONCharField)"])
 except ImportError:
     pass
