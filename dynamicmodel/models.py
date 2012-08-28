@@ -127,15 +127,31 @@ class DynamicForm(forms.ModelForm):
         return m
 
 
+class DynamicSchemaManager(models.Manager):
+
+    def get_for_model(self, model_class, type_value=''):
+        return self.get_or_create(type_value=type_value,
+            model=ContentType.objects.get_for_model(model_class))[0]
+
+
 class DynamicSchema(models.Model):
     class Meta:
         unique_together = ('model', 'type_value')
 
+    objects = DynamicSchemaManager()
     model = models.ForeignKey(ContentType)
     type_value = models.CharField(max_length=100, null=True, blank=True)
 
     def __unicode__(self):
-        return "%s%s" % (self.model, " (%s)" % self.type_value if self.type_value else '')
+        return "%s%s" % (self.model,
+            " (%s)" % self.type_value if self.type_value else '')
+
+    def add_field(self, name, type):
+        return self.fields.create(schema=self, name=name, field_type=type)
+
+    @classmethod
+    def get_for_model(cls, model_class, type_value=''):
+        return cls.objects.get_for_model(model_class, type_value)
 
 
 class DynamicSchemaField(models.Model):
