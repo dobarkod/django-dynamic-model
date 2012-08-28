@@ -149,6 +149,9 @@ class DynamicSchema(models.Model):
     def add_field(self, name, type):
         return self.fields.create(schema=self, name=name, field_type=type)
 
+    def remove_field(self, name):
+        return self.fields.filter(name=name).delete()
+
     @classmethod
     def get_for_model(cls, model_class, type_value=''):
         return cls.objects.get_for_model(model_class, type_value)

@@ -213,6 +213,18 @@ class DynamicModelTest(TestCase):
         m4 = TestModel.objects.get(id=m3.id)
         self.assertFalse(hasattr(m4, 'field'))
 
+    def test_schema_add_remove_field(self):
+        schema = DynamicSchema.get_for_model(TypelessModel)
+        schema.add_field(name='field', type='CharField')
+
+        m1 = TypelessModel.objects.create()
+        self.assertTrue(hasattr(m1, 'field'))
+
+        schema.remove_field(name='field')
+        m2 = TypelessModel.objects.get(id=m1.id)
+        m2 = TypelessModel.objects.create()
+        self.assertFalse(hasattr(m2, 'field'))
+
 
 # testing DynamicModel and DynamicForm
 class DynamicFormTest(TestCase):
