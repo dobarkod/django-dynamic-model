@@ -22,7 +22,7 @@ Here's a quick example:
     schema = DynamicSchema.get_for_model(MyModel)
     schema.add_field(name='field', type='CharField')
 
-    m1 = TypelessModel()
+    m1 = MyModel()
     print m1.field  # None
     m1.field = 'foo'
     m1.save()
