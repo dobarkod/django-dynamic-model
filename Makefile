@@ -15,6 +15,3 @@ coverage:
 
 upload: build coverage docs
 	$(SETUP) sdist upload
-
-install_and_test:
-	$(SETUP) install && cd testproject && python manage.py test dynamicmodel

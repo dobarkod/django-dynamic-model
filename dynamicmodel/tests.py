@@ -3,7 +3,8 @@ Tests for DynamicModel, DynamicModelWithSchema and DynamicForm
 """
 
 from django.test import TestCase
-from .models import DynamicModel, DynamicForm, DynamicSchemaField
+from .models import DynamicModel, DynamicForm, DynamicSchema, \
+    DynamicSchemaField
 from django.db import models
 from django.core.exceptions import ValidationError
 
@@ -185,6 +186,44 @@ class DynamicModelTest(TestCase):
         self.assertFalse(hasattr(fresh_model, 'field_one'))
         # attr 'field_two' still exists
         self.assertTrue(hasattr(fresh_model, 'field_two'))
+
+    def test_manually_create_schema_typeless(self):
+        schema = DynamicSchema.get_for_model(TypelessModel)
+        schema.add_field(name='field', type='CharField')
+
+        m1 = TypelessModel()
+        m1.field = 'foo'
+        m1.save()
+        m2 = TypelessModel.objects.get(id=m1.id)
+        self.assertEqual(m2.field, 'foo')
+
+    def test_manually_create_schema_typed(self):
+        schema = DynamicSchema.get_for_model(TestModel, type_value='foo')
+        schema.add_field(name='field', type='CharField')
+
+        m1 = TestModel.objects.create(type='foo')
+        m1.field = 'foo'
+        m1.save()
+        m2 = TestModel.objects.get(id=m1.id)
+        self.assertEqual(m2.field, 'foo')
+
+        m3 = TestModel.objects.create(type='bar')
+        m3.field = 'foo'
+        m3.save()
+        m4 = TestModel.objects.get(id=m3.id)
+        self.assertFalse(hasattr(m4, 'field'))
+
+    def test_schema_add_remove_field(self):
+        schema = DynamicSchema.get_for_model(TypelessModel)
+        schema.add_field(name='field', type='CharField')
+
+        m1 = TypelessModel.objects.create()
+        self.assertTrue(hasattr(m1, 'field'))
+
+        schema.remove_field(name='field')
+        m2 = TypelessModel.objects.get(id=m1.id)
+        m2 = TypelessModel.objects.create()
+        self.assertFalse(hasattr(m2, 'field'))
 
 
 # testing DynamicModel and DynamicForm
