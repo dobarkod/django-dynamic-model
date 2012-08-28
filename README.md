@@ -41,7 +41,7 @@ Here's a quick example:
 
 Install via pip directly from GitHub:
 
-    pip install -e git+ssh://github.com/dobarkod/django-dynamic-model/tree/master
+    pip install -e git+http://github.com/dobarkod/django-dynamic-model#egg=django-dynamic-model
 
 ## Tests and docs
 
