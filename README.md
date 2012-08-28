@@ -20,11 +20,14 @@ Here's a quick example:
         name = models.CharField(max_length=100)  # regular field
 
     schema = DynamicSchema.get_for_model(MyModel)
-    schema.add_field(name='field', type='CharField')
+    schema.add_field(name='nickname', type='CharField')
+    schema.add_field(name='age', type='IntegerField')
 
-    m1 = MyModel()
-    print m1.field  # None
-    m1.field = 'foo'
+    m1 = MyModel(name='John Doe')
+    print m1.nickname # None
+    m1.nickname = 'JD'
+    m1.age = 21
+
     m1.save()
 
     class MyForm(DynamicForm):
