@@ -15,18 +15,21 @@ class DynamicModel(models.Model):
 
     def __init__(self, *args, **kwargs):
         super(DynamicModel, self).__init__(*args, **kwargs)
+        self._schema = None
         self.get_schema()
         self._sync_with_schema()
 
     def _sync_with_schema(self):
         schema_extra_fields = self.get_extra_fields_names()
-        clear_field = [field_name for field_name in self.extra_fields \
+        clear_field = [field_name for field_name in self.extra_fields
             if field_name not in schema_extra_fields]
+        new_field = [field_name for field_name in schema_extra_fields
+            if field_name not in self.extra_fields]
 
         for el in clear_field:
             del self.extra_fields[el]
-
-        return bool(clear_field)
+        for el in new_field:
+            self.extra_fields[el] = None
 
     def get_extra_field_value(self, key):
         if key in self.extra_fields:
@@ -51,9 +54,6 @@ class DynamicModel(models.Model):
         return [name for name, verbose_name, field_type, required in self.get_extra_fields()]
 
     def get_schema(self):
-        if not hasattr(self, '_schema'):
-            self._schema = None
-
         if not self._schema:
             type_value = ''
             if self.get_schema_type_descriptor():
