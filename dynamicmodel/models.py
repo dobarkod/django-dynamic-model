@@ -40,10 +40,11 @@ class DynamicModel(models.Model):
     def get_extra_fields(self):
         _schema = self.get_schema()
         for field in _schema.fields.all():
-            yield field.name, field.verbose_name, field.field_type, field.required
+            yield field.name, field.verbose_name, field.field_type, \
+                field.required, self.get_extra_field_value(field.name)
 
     def get_extra_fields_names(self):
-        return [name for name, verbose_name, field_type, required in self.get_extra_fields()]
+        return [name for name, verbose_name, field_type, required, value in self.get_extra_fields()]
 
     def get_schema(self):
         if not self._schema:
@@ -92,7 +93,7 @@ class DynamicForm(forms.ModelForm):
             raise ValueError("DynamicForm.Meta.model must be inherited from DynamicModel")
 
         if self.instance and hasattr(self.instance, 'get_extra_fields'):
-            for name, verbose_name, field_type, req in self.instance.get_extra_fields():
+            for name, verbose_name, field_type, req, value in self.instance.get_extra_fields():
                 field_mapping_case = dict(self.field_mapping)[field_type]
                 self.fields[name] = field_mapping_case['field'](required=req,
                     widget=field_mapping_case.get('widget'),
@@ -105,7 +106,7 @@ class DynamicForm(forms.ModelForm):
 
         extra_fields = {}
 
-        extra_fields_names = [name for name, verbose_name, field_type, req \
+        extra_fields_names = [name for name, verbose_name, field_type, req, value \
             in self.instance.get_extra_fields()]
 
         for cleaned_key in self.cleaned_data.keys():
