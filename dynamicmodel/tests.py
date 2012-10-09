@@ -338,8 +338,8 @@ class DynamicFormTest(TestCase):
 
         model_from_db = TestModel.objects.get(pk=model_from_form.id)
 
-        self.assertEqual(model_from_form.get_field_dict(),
-            model_from_db.get_field_dict())
+        self.assertEqual(model_from_form.extra_fields,
+            model_from_db.extra_fields)
 
     def test_false_form(self):
 
