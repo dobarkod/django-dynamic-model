@@ -37,14 +37,6 @@ class DynamicModel(models.Model):
         else:
             return None
 
-    def get_field_dict(self):
-        d = self.extra_fields
-        for field in self._meta.fields:
-            if field.name == 'extra_fields':
-                continue
-            d[field.name] = getattr(self, field.name)
-        return d
-
     def get_extra_fields(self):
         _schema = self.get_schema()
         for field in _schema.fields.all():
