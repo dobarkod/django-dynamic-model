@@ -14,8 +14,8 @@ class DynamicModel(models.Model):
     extra_fields = JSONField(editable=False, default="{}")
 
     def __init__(self, *args, **kwargs):
-        super(DynamicModel, self).__init__(*args, **kwargs)
         self._schema = None
+        super(DynamicModel, self).__init__(*args, **kwargs)
         self.get_schema()
         self._sync_with_schema()
 
