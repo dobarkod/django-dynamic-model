@@ -68,7 +68,7 @@ class JSONFieldBase(object):
             try:
                 return json.loads(value, **self.load_kwargs)
             except ValueError:
-                pass
+                raise ValueError("%s field got non-valid JSON" % self.name)
         return value
 
     def get_db_prep_value(self, value, connection, prepared=False):

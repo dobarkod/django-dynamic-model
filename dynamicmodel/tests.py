@@ -69,6 +69,14 @@ class DynamicModelTest(TestCase):
 
         DynamicSchemaField.objects.all().delete()
 
+    def test_extra_fields_nonvalid_json(self):
+        model = TestModel()
+        self.assertRaises(ValueError, setattr, model, 'extra_fields', 'a')
+
+    def test_extra_fields_valid_json(self):
+        model = TestModel()
+        model.extra_fields = '{}'
+
     def test_extra_fields_db_save(self):
 
         model = TestModel()
@@ -338,8 +346,8 @@ class DynamicFormTest(TestCase):
 
         model_from_db = TestModel.objects.get(pk=model_from_form.id)
 
-        self.assertEqual(model_from_form.get_field_dict(),
-            model_from_db.get_field_dict())
+        self.assertEqual(model_from_form.extra_fields,
+            model_from_db.extra_fields)
 
     def test_false_form(self):
 

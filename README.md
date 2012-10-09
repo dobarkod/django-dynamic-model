@@ -14,7 +14,7 @@ The dynamic models aren't schemaless: valid fields are defined using
 
 Here's a quick example:
 
-    from dynamicmodel import DynamicModel, DynamicSchema, DynamicForm
+    from dynamicmodel.models import DynamicModel, DynamicSchema, DynamicForm
 
     class MyModel(DynamicModel):
         name = models.CharField(max_length=100)  # regular field
