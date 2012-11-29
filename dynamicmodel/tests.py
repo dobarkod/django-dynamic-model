@@ -351,6 +351,46 @@ class DynamicModelCachingTest(TestCase):
             end_q_num = len(connection.queries)
             self.assertEqual(end_q_num - start_q_num, 0)
 
+    def test_delete_schema_qs_clears_cache(self):
+        with self.settings(DEBUG=True):
+            DynamicSchema.get_for_model(TestModel)
+            self.assertIsNotNone(
+                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+            DynamicSchema.objects.all().delete()
+            self.assertIsNone(
+                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+
+    def test_delete_schema_qs_with_diff_types_clears_cache(self):
+        with self.settings(DEBUG=True):
+
+            DynamicSchema.get_for_model(TestModel)
+            DynamicSchema.get_for_model(TestModel, 'some_value')
+
+            # there is cached value
+            self.assertIsNotNone(
+                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+            self.assertIsNotNone(
+                cache.get(DynamicSchema.get_cache_key_static(TestModel,
+                    'some_value')))
+
+            DynamicSchema.objects.all().delete()
+
+            # there is no cached value
+            self.assertIsNone(
+                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+            self.assertIsNone(
+                cache.get(DynamicSchema.get_cache_key_static(TestModel,
+                    'some_value')))
+
+    def test_delete_schema_clears_cache(self):
+        with self.settings(DEBUG=True):
+            schema = DynamicSchema.get_for_model(TestModel)
+            self.assertIsNotNone(
+                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+            schema.delete()
+            self.assertIsNone(
+                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+
 
 # testing DynamicModel and DynamicForm
 class DynamicFormTest(TestCase):
