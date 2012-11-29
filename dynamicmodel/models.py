@@ -4,6 +4,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.validators import RegexValidator
 from .fields import JSONField
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
 
 
 class DynamicModel(models.Model):
@@ -47,16 +48,10 @@ class DynamicModel(models.Model):
         return [name for name, verbose_name, field_type, required, value in self.get_extra_fields()]
 
     def get_schema(self):
-        if not self._schema:
-            type_value = ''
-            if self.get_schema_type_descriptor():
-                type_value = getattr(self, self.get_schema_type_descriptor())
-            self._schema, created = DynamicSchema.objects\
-                .prefetch_related('fields').get_or_create(
-                    type_value=type_value,
-                    model=ContentType.objects.get_for_model(self))
-
-        return self._schema
+        type_value = ''
+        if self.get_schema_type_descriptor():
+            type_value = getattr(self, self.get_schema_type_descriptor())
+        return DynamicSchema.get_for_model(self, type_value)
 
     def get_schema_type_descriptor(self):
         return ''
@@ -120,11 +115,32 @@ class DynamicForm(forms.ModelForm):
         return m
 
 
+class DynamicSchemaQuerySet(models.query.QuerySet):
+    def delete(self, *args, **kwargs):
+        cases = []
+        for el in list(self):
+            tpl = (el.model, el.type_value)
+            if tpl not in cases:
+                cases.append(tpl)
+        super(DynamicSchemaQuerySet, self).delete(*args, **kwargs)
+        for el in cases:
+            cache_key = DynamicSchema.get_cache_key_static(
+                el[0].model_class(), el[1])
+            cache.set(cache_key, None)
+        return self
+
+
 class DynamicSchemaManager(models.Manager):
+    def get_query_set(self):
+        return DynamicSchemaQuerySet(self.model, using=self._db)
 
     def get_for_model(self, model_class, type_value=''):
-        return self.get_or_create(type_value=type_value,
-            model=ContentType.objects.get_for_model(model_class))[0]
+        cache_key = DynamicSchema.get_cache_key_static(model_class, type_value)
+        cache_value = cache.get(cache_key)
+        if cache_value is not None:
+            return cache_value
+        else:
+            return DynamicSchema.renew_cache_static(model_class, type_value)
 
 
 class DynamicSchema(models.Model):
@@ -132,6 +148,7 @@ class DynamicSchema(models.Model):
         unique_together = ('model', 'type_value')
 
     objects = DynamicSchemaManager()
+
     model = models.ForeignKey(ContentType)
     type_value = models.CharField(max_length=100, null=True, blank=True)
 
@@ -149,6 +166,62 @@ class DynamicSchema(models.Model):
     def get_for_model(cls, model_class, type_value=''):
         return cls.objects.get_for_model(model_class, type_value)
 
+    @classmethod
+    def get_cache_key_static(cls, model_class, type_value):
+        return "%s-%s-%s-%s" % ('DYNAMICMODEL_SCHEMA_CACHE_KEY',
+            model_class._meta.app_label, model_class._meta.module_name,
+            type_value)
+
+    def get_cache_key(self):
+        return self.get_cache_key_static(self.model.model_class(),
+            self.type_value)
+
+    @classmethod
+    def renew_cache_static(cls, model_class, type_value):
+        cache_key = cls.get_cache_key_static(model_class, type_value)
+
+        if not cls.objects.filter(type_value=type_value,
+            model=ContentType.objects.get_for_model(model_class)).exists():
+
+            cls.objects.create(type_value=type_value,
+                model=ContentType.objects.get_for_model(model_class))
+
+        schema = cls.objects.prefetch_related('fields')\
+            .get(
+                type_value=type_value,
+                model=ContentType.objects.get_for_model(model_class))
+
+        cache.set(cache_key, schema)
+        return schema
+
+    def renew_cache(self):
+        return self.renew_cache_static(self.model.model_class(),
+            self.type_value)
+
+    # overrides
+    def save(self, *args, **kwargs):
+        super(DynamicSchema, self).save(*args, **kwargs)
+        self.renew_cache()
+
+    def delete(self, *args, **kwargs):
+        super(DynamicSchema, self).delete(*args, **kwargs)
+        cache.set(self.get_cache_key(), None)
+        return self
+
+
+class DynamicSchemaFieldQuerySet(models.query.QuerySet):
+    def delete(self):
+        cache_el = None
+        for el in self:
+            cache_el = el.delete(renew=False)
+        if cache_el:
+            cache_el.renew_cache()
+
+
+class DynamicSchemaFieldManager(models.Manager):
+    def get_query_set(self):
+        return DynamicSchemaFieldQuerySet(self.model, using=self._db)
+
 
 class DynamicSchemaField(models.Model):
     FIELD_TYPES = [
@@ -161,6 +234,8 @@ class DynamicSchemaField(models.Model):
     class Meta:
         unique_together = ('schema', 'name')
 
+    objects = DynamicSchemaFieldManager()
+
     schema = models.ForeignKey(DynamicSchema, related_name='fields')
     name = models.CharField(max_length=100, validators=[RegexValidator(r'^[\w]+$',
         message="Name should contain only alphanumeric characters and underscores.")])
@@ -171,8 +246,23 @@ class DynamicSchemaField(models.Model):
     def save(self, *args, **kwargs):
         self.clean()
         super(DynamicSchemaField, self).save(*args, **kwargs)
+        self.renew_cache()
+
+    def delete(self, *args, **kwargs):
+        renew = kwargs.pop('renew', True)
+        super(DynamicSchemaField, self).delete(*args, **kwargs)
+        if renew:
+            self.renew_cache()
+        return self
+
+    def renew_cache(self):
+        DynamicSchema.renew_cache_static(self.schema.model.model_class(),
+            self.schema.type_value)
 
     def clean(self):
+
+        if self.field_type not in dict(self.FIELD_TYPES).keys():
+            raise ValidationError("Wrong field_type")
 
         if not self.id:
             return
@@ -184,7 +274,7 @@ class DynamicSchemaField(models.Model):
 
         for field_name in fields:
             if old_model.__dict__.get(field_name) != self.__dict__.get(field_name):
-                raise ValidationError("%s value cannot be modified")
+                raise ValidationError("%s value cannot be modified" % field_name)
 
     def __unicode__(self):
         return "%s - %s" % (self.schema, self.name)
