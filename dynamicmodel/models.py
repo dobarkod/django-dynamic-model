@@ -129,7 +129,7 @@ class DynamicSchemaManager(models.Manager):
         return DynamicSchemaQuerySet(self.model, using=self._db)
 
     def get_for_model(self, model_class, type_value=''):
-        cache_key = DynamicSchema.get_cache_key(model_class, type_value)
+        cache_key = DynamicSchema.get_cache_key_static(model_class, type_value)
         cache_value = cache.get(cache_key)
         if cache_value is not None:
             return cache_value
@@ -161,18 +161,30 @@ class DynamicSchema(models.Model):
         return cls.objects.get_for_model(model_class, type_value)
 
     @classmethod
-    def get_cache_key(cls, model_class, type_value):
+    def get_cache_key_static(cls, model_class, type_value):
         return "%s-%s-%s-%s" % ('DYNAMICMODEL_SCHEMA_CACHE_KEY',
             model_class._meta.app_label, model_class._meta.module_name,
             type_value)
 
+    def get_cache_key(self):
+        return self.get_cache_key_static(self.model.model_class(),
+            self.type_value)
+
     @classmethod
     def renew_cache_static(cls, model_class, type_value):
-        cache_key = cls.get_cache_key(model_class, type_value)
+        cache_key = cls.get_cache_key_static(model_class, type_value)
+
+        if not cls.objects.filter(type_value=type_value,
+            model=ContentType.objects.get_for_model(model_class)).exists():
+
+            cls.objects.create(type_value=type_value,
+                model=ContentType.objects.get_for_model(model_class))
+
         schema = cls.objects.prefetch_related('fields')\
-            .get_or_create(
+            .get(
                 type_value=type_value,
-                model=ContentType.objects.get_for_model(model_class))[0]
+                model=ContentType.objects.get_for_model(model_class))
+
         cache.set(cache_key, schema)
         return schema
 
