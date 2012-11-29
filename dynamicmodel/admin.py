@@ -5,9 +5,11 @@ from django.contrib.contenttypes.models import ContentType
 
 class DynamicSchemaFieldInline(admin.TabularInline):
     model = DynamicSchemaField
+    extra = 1
 
 
 class DynamicSchemaAdmin(admin.ModelAdmin):
+    list_display = ['model', 'type_value']
     inlines = [
         DynamicSchemaFieldInline,
     ]
