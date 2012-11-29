@@ -116,12 +116,18 @@ class DynamicForm(forms.ModelForm):
 
 
 class DynamicSchemaQuerySet(models.query.QuerySet):
-    def delete(self):
-        cache_el = None
-        for el in self:
-            cache_el = el.delete(clear_cache=False)
-        if cache_el:
-            cache.set(cache_el.get_cache_key(), None)
+    def delete(self, *args, **kwargs):
+        cases = []
+        for el in list(self):
+            tpl = (el.model, el.type_value)
+            if tpl not in cases:
+                cases.append(tpl)
+        super(DynamicSchemaQuerySet, self).delete(*args, **kwargs)
+        for el in cases:
+            cache_key = DynamicSchema.get_cache_key_static(
+                el[0].model_class(), el[1])
+            cache.set(cache_key, None)
+        return self
 
 
 class DynamicSchemaManager(models.Manager):
@@ -198,10 +204,8 @@ class DynamicSchema(models.Model):
         self.renew_cache()
 
     def delete(self, *args, **kwargs):
-        clear_cache = kwargs.pop('clear_cache', True)
         super(DynamicSchema, self).delete(*args, **kwargs)
-        if clear_cache:
-            cache.set(self.get_cache_key(), None)
+        cache.set(self.get_cache_key(), None)
         return self
 
 
