@@ -119,9 +119,9 @@ class DynamicSchemaQuerySet(models.query.QuerySet):
     def delete(self):
         cache_el = None
         for el in self:
-            cache_el = el.delete(renew=False)
+            cache_el = el.delete(clear_cache=False)
         if cache_el:
-            cache_el.renew_cache()
+            cache.set(cache_el.get_cache_key(), None)
 
 
 class DynamicSchemaManager(models.Manager):
@@ -192,15 +192,16 @@ class DynamicSchema(models.Model):
         return self.renew_cache_static(self.model.model_class(),
             self.type_value)
 
+    # overrides
     def save(self, *args, **kwargs):
         super(DynamicSchema, self).save(*args, **kwargs)
         self.renew_cache()
 
     def delete(self, *args, **kwargs):
-        renew = kwargs.pop('renew', True)
+        clear_cache = kwargs.pop('clear_cache', True)
         super(DynamicSchema, self).delete(*args, **kwargs)
-        if renew:
-            self.renew_cache()
+        if clear_cache:
+            cache.set(self.get_cache_key(), None)
         return self
 
 
