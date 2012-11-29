@@ -258,7 +258,7 @@ class DynamicSchemaField(models.Model):
     def clean(self):
 
         if self.field_type not in dict(self.FIELD_TYPES).keys():
-            raise ValueError("Wrong field_type")
+            raise ValidationError("Wrong field_type")
 
         if not self.id:
             return
