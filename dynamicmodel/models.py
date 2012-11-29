@@ -270,7 +270,7 @@ class DynamicSchemaField(models.Model):
 
         for field_name in fields:
             if old_model.__dict__.get(field_name) != self.__dict__.get(field_name):
-                raise ValidationError("%s value cannot be modified")
+                raise ValidationError("%s value cannot be modified" % field_name)
 
     def __unicode__(self):
         return "%s - %s" % (self.schema, self.name)
