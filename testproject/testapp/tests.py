@@ -3,9 +3,9 @@ Tests for DynamicModel, DynamicModelWithSchema and DynamicForm
 """
 
 from django.test import TestCase
-from .models import DynamicModel, DynamicForm, DynamicSchema, \
+from dynamicmodel.models import DynamicModel, DynamicForm, DynamicSchema, \
     DynamicSchemaField
-from django.db import models, connection
+from django.db import models
 from django.core.exceptions import ValidationError
 
 from django.core.cache import cache
