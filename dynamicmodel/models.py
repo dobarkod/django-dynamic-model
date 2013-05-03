@@ -79,6 +79,8 @@ class DynamicForm(forms.ModelForm):
         ('CharField', {'field': forms.CharField}),
         ('TextField', {'field': forms.CharField, 'widget': forms.Textarea}),
         ('EmailField', {'field': forms.EmailField}),
+        ('Dropdown', {'field': forms.CharField, 'widget': forms.Select}),
+        ('BooleanField', {'field': forms.NullBooleanField}),
     ]
 
     def __init__(self, *args, **kwargs):
@@ -229,6 +231,8 @@ class DynamicSchemaField(models.Model):
         ('CharField', 'One line of text'),
         ('TextField', 'Multiline text input'),
         ('EmailField', 'Email'),
+        ('Dropdown', 'Dropdown'),
+        ('BooleanField', 'Yes / No'),
     ]
 
     class Meta:
