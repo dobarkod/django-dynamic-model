@@ -42,10 +42,10 @@ class DynamicModel(models.Model):
         _schema = self.get_schema()
         for field in _schema.fields.all():
             yield field.name, field.verbose_name, field.field_type, \
-                field.required, self.get_extra_field_value(field.name)
+                field.required, field.extra, self.get_extra_field_value(field.name)
 
     def get_extra_fields_names(self):
-        return [name for name, verbose_name, field_type, required, value in self.get_extra_fields()]
+        return [name for name, verbose_name, field_type, required, extra, value in self.get_extra_fields()]
 
     def get_schema(self):
         type_value = ''
@@ -90,20 +90,30 @@ class DynamicForm(forms.ModelForm):
             raise ValueError("DynamicForm.Meta.model must be inherited from DynamicModel")
 
         if self.instance and hasattr(self.instance, 'get_extra_fields'):
-            for name, verbose_name, field_type, req, value in self.instance.get_extra_fields():
+            for name, verbose_name, field_type, req, extra, value in self.instance.get_extra_fields():
                 field_mapping_case = dict(self.field_mapping)[field_type]
-                self.fields[name] = field_mapping_case['field'](required=req,
-                    widget=field_mapping_case.get('widget'),
-                    initial=self.instance.get_extra_field_value(name),
-                    label=verbose_name.capitalize() if verbose_name else \
-                        " ".join(name.split("_")).capitalize())
+
+                widget = field_mapping_case.get('widget')
+
+                if extra and extra.get('choices'):
+                    widget = widget(choices=extra.get('choices'))
+
+                field_kwargs = {
+                    'required': req,
+                    'widget': widget,
+                    'initial': self.instance.get_extra_field_value(name),
+                    'label': verbose_name.capitalize() if verbose_name else
+                        " ".join(name.split("_")).capitalize(),
+                }
+
+                self.fields[name] = field_mapping_case['field'](**field_kwargs)
 
     def save(self, force_insert=False, force_update=False, commit=True):
         m = super(DynamicForm, self).save(commit=False)
 
         extra_fields = {}
 
-        extra_fields_names = [name for name, verbose_name, field_type, req, value \
+        extra_fields_names = [name for name, verbose_name, field_type, req, extra, value
             in self.instance.get_extra_fields()]
 
         for cleaned_key in self.cleaned_data.keys():
@@ -246,6 +256,12 @@ class DynamicSchemaField(models.Model):
     verbose_name = models.CharField(max_length=100, null=True, blank=True)
     field_type = models.CharField(max_length=100, choices=FIELD_TYPES)
     required = models.BooleanField(default=True)
+    extra = JSONField(default='{}')
+
+    @property
+    def display_label(self):
+        ret_val = self.verbose_name or self.name.replace('_', ' ')
+        return ret_val.capitalize()
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -275,6 +291,8 @@ class DynamicSchemaField(models.Model):
 
         fields = [f.name for f in DynamicSchemaField._meta.fields]
         fields.remove('verbose_name')
+        fields.remove('required')
+        fields.remove('extra')
 
         for field_name in fields:
             if old_model.__dict__.get(field_name) != self.__dict__.get(field_name):
