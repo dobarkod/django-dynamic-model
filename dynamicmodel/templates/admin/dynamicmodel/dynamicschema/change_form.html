@@ -107,11 +107,9 @@
                     var form = $(this).closest('form');
                     param = form_values(form);
                     $.postJSON(form.attr('action'), param, function(data){
-                        // $('.field-form-holder').html(data.html);
                         form.closest('.holder').html(data.html);
                         if (data.success) {
                             load_list();
-                            // $('.field-form-holder').empty();
                             form.closest('.holder').empty();
                         }
                     });
@@ -119,6 +117,7 @@
                 });
 
                 $('.field-management-holder').on('click', 'form .cancel-button', function(){
+                    $(this).closest('tr').remove();
                     $(this).closest('form').remove();
                     return false;
                 });
@@ -189,6 +188,14 @@
             background: #f5f5f5;
         }
 
+        .field-type-select-holder {
+            margin: 5px 0 10px 0;
+        }
+
+        .field-form-holder {
+            margin-bottom: 10px;
+        }
+
     </style>
 {% endblock %}
 
@@ -197,6 +204,7 @@
     {{ block.super }}
 
     {% if object_id %}
+        <div style="clear: both;"></div>
         <div class="field-management-holder holder">
             <div class="field-type-select-holder holder"></div>
             <div class="field-form-holder holder"></div>
