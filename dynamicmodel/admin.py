@@ -1,22 +1,40 @@
-from django.contrib import admin
-from dynamicmodel.models import DynamicSchemaField, DynamicSchema, DynamicModel
 from django.contrib.contenttypes.models import ContentType
+from django.contrib import admin
+from django.conf.urls import patterns, url
+from django.conf import settings
 
-
-class DynamicSchemaFieldInline(admin.TabularInline):
-    model = DynamicSchemaField
-    extra = 1
+from dynamicmodel.models import DynamicSchema, DynamicModel, DynamicSchemaField
 
 
 class DynamicSchemaAdmin(admin.ModelAdmin):
     list_display = ['model', 'type_value']
-    inlines = [
-        DynamicSchemaFieldInline,
-    ]
+
+    def get_urls(self):
+        urls = super(DynamicSchemaAdmin, self).get_urls()
+        custom_urls = patterns('dynamicmodel.admin_views',
+            url(r'^(?P<schema_id>\d+)/field_list/$',
+                'dynamic_schema_field_list',
+                name='dynamicmodel_dynamicschema_field_list'),
+            url(r'^/field/(?P<field_id>\d+)/delete/$',
+                'dynamic_schema_field_delete',
+                name='dynamicmodel_dynamicschema_field_delete'),
+            url(r'^field_type_select/$',
+                'dynamic_schema_field_type_select',
+                name='dynamicmodel_dynamicschema_field_type_select'),
+            url(r'^(?P<schema_id>\d+)/forms/(?P<field_type>%s)/$' %
+                ("|".join(dict(DynamicSchemaField.FIELD_TYPES).keys())),
+                'dynamic_schema_field_form',
+                name='dynamicmodel_dynamicschema_field_form_create'),
+            url(r'^(?P<schema_id>\d+)/forms/(?P<field_type>%s)/(?P<field_id>\d+)/$' %
+                ("|".join(dict(DynamicSchemaField.FIELD_TYPES).keys())),
+                'dynamic_schema_field_form',
+                name='dynamicmodel_dynamicschema_field_form_edit'),
+        )
+        return custom_urls + urls
 
     def render_change_form(self, request, context, *args, **kwargs):
 
-        dynamic_schema_content_type_ids = [el.id for el in \
+        dynamic_schema_content_type_ids = [el.id for el in
             ContentType.objects.all()
             if issubclass(el.model_class(), DynamicModel)]
 
@@ -27,5 +45,5 @@ class DynamicSchemaAdmin(admin.ModelAdmin):
             request, context, args, kwargs)
 
 
-admin.site.register(DynamicSchema, DynamicSchemaAdmin)
-admin.site.register(ContentType)
+if getattr(settings, 'DYNAMICMODEL_USE_DEFAULT_ADMIN', True):
+    admin.site.register(DynamicSchema, DynamicSchemaAdmin)

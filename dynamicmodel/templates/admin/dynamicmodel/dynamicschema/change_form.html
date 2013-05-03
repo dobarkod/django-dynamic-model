@@ -1,0 +1,207 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.0/jquery.min.js" type="text/javascript"></script>
+    <script type="text/javascript">
+
+        jQuery.extend({
+            postJSON: function(url, data, callback_fn) {
+                $.ajax({
+                    type: 'POST',
+                    data: JSON.stringify(data),
+                    contentType: "application/json",
+                    url: url,
+                    success: callback_fn
+                });
+            }
+        });
+
+        $(function(){
+            $(document).ajaxSend(function(event, xhr, settings) {
+                function getCookie(name) {
+                    var cookieValue = null;
+                    if (document.cookie && document.cookie != '') {
+                        var cookies = document.cookie.split(';');
+                        for (var i = 0; i < cookies.length; i++) {
+                            var cookie = jQuery.trim(cookies[i]);
+                            // Does this cookie string begin with the name we want?
+                            if (cookie.substring(0, name.length + 1) == (name + '=')) {
+                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                break;
+                            }
+                        }
+                    }
+                    return cookieValue;
+                }
+                function sameOrigin(url) {
+                    // url could be relative or scheme relative or absolute
+                    var host = document.location.host; // host + port
+                    var protocol = document.location.protocol;
+                    var sr_origin = '//' + host;
+                    var origin = protocol + sr_origin;
+                    // Allow absolute or scheme relative URLs to same origin
+                    return (url == origin || url.slice(0, origin.length + 1) == origin + '/') ||
+                        (url == sr_origin || url.slice(0, sr_origin.length + 1) == sr_origin + '/') ||
+                        // or any other URL that isn't scheme relative or absolute i.e relative.
+                        !(/^(\/\/|http:|https:).*/.test(url));
+                }
+                function safeMethod(method) {
+                    return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+                }
+
+                if (!safeMethod(settings.type) && sameOrigin(settings.url)) {
+                    xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+                }
+            });
+        });
+
+        (function($){
+            $(function(){
+
+                function form_values(form) {
+                    var values = {};
+                    $.each(form.serializeArray(), function(i, field) {
+                        values[field.name] = field.value;
+                    });
+                    return values;
+                }
+
+                function load_create_form(field_type) {
+                    var url = '/admin/dynamicmodel/dynamicschema/' + {{ object_id }} + '/forms/' + field_type;
+                    $.getJSON(url, function(data){
+                        $('.field-form-holder').html(data.html);
+                    });
+                }
+
+                function load_edit_form(row_el) {
+                    var id = row_el.data('object-id');
+                    var field_type = row_el.data('object-field-type');
+                    var url = '/admin/dynamicmodel/dynamicschema/' + {{ object_id }} + '/forms/' + field_type + '/' + id + '/';
+                    $.getJSON(url, function(data){
+                        $('.edit-field-form').remove();
+                        row_el.after(
+                            $('<tr>').addClass('edit-field-form').html($('<td>').addClass('holder').attr('colspan', '4').html(data.html))
+                        );
+                    });
+                }
+
+                function load_list() {
+                    $.getJSON('{% url admin:dynamicmodel_dynamicschema_field_list object_id %}', function(data){
+                        $('.field-list-holder').html(data.html);
+                    });
+                }
+
+                function load_type_select() {
+                    $.getJSON('{% url admin:dynamicmodel_dynamicschema_field_type_select %}', function(data){
+                        $('.field-type-select-holder').html(data.html);
+                    });
+                }
+
+                // event handlers
+                $('.field-management-holder').on('submit', '.dynamicschema-field-form', function(){
+                    return false;
+                });
+
+                $('.field-management-holder').on('click', 'form .submit-button', function(){
+                    var form = $(this).closest('form');
+                    param = form_values(form);
+                    $.postJSON(form.attr('action'), param, function(data){
+                        // $('.field-form-holder').html(data.html);
+                        form.closest('.holder').html(data.html);
+                        if (data.success) {
+                            load_list();
+                            // $('.field-form-holder').empty();
+                            form.closest('.holder').empty();
+                        }
+                    });
+                    return false;
+                });
+
+                $('.field-management-holder').on('click', 'form .cancel-button', function(){
+                    $(this).closest('form').remove();
+                    return false;
+                });
+
+                $('.field-type-select-holder').on('change', '.select-field-type', function(){
+                    if ($(this).val())
+                        load_create_form($(this).val());
+                    else
+                        $('.field-form-holder').empty();
+                });
+
+                $('.field-list-holder').on('click', '.field-list-row', function(){
+                    load_edit_form($(this));
+                });
+
+                $('.field-list-holder').on('click', 'form .delete-button', function(ev) {
+
+                    ev.stopPropagation();
+                    ev.preventDefault();
+
+                    var current_el = $(this);
+                    var confirmed_action = true;
+
+                    var should_prompt = current_el.attr('data-should-prompt');
+
+                    if (typeof should_prompt !== 'undefined' && should_prompt !== false){
+                        var message = "Are you sure?";
+                        if (should_prompt !== "")
+                            message = should_prompt;
+                        confirmed_action = confirm(message);
+                    }
+
+                    if (confirmed_action)
+                        $.postJSON(current_el.attr('href'), {}, function(data){
+                            load_list();
+                        });
+                });
+
+                // init
+                load_type_select();
+                load_list();
+
+            });
+        })(jQuery);
+
+    </script>
+
+    <style type="text/css">
+
+        a.button, .button {
+            font-family: "Lucida Grande", Verdana, Arial, sans-serif;
+            font-size: 11px;
+            font-weight: normal;
+            text-decoration: none;
+            background-color: #EEEEEE;
+            color: #333333;
+            padding: 2px 6px 2px 6px;
+            border-color: #ddd #aaa #aaa #ddd;
+        }
+
+        .button:hover {
+            cursor: pointer;
+            color: #5b80b2;
+        }
+
+        .field-list-row:hover {
+            cursor: pointer;
+            background: #f5f5f5;
+        }
+
+    </style>
+{% endblock %}
+
+{% block content %}
+
+    {{ block.super }}
+
+    {% if object_id %}
+        <div class="field-management-holder holder">
+            <div class="field-type-select-holder holder"></div>
+            <div class="field-form-holder holder"></div>
+            <div class="field-list-holder holder"></div>
+        </div>
+    {% endif %}
+
+{% endblock %}

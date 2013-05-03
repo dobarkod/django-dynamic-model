@@ -1,0 +1,6 @@
+<select class="select-field-type">
+    <option value="">--- Select field type ---</option>
+    {% for value, label in options %}
+        <option value="{{ value }}">{{ label }}</option>
+    {% endfor %}
+</select>
