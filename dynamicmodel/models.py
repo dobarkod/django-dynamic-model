@@ -285,6 +285,8 @@ class DynamicSchemaField(models.Model):
             raise ValidationError("Wrong field_type")
 
         if not self.id:
+            if DynamicSchemaField.objects.filter(name=self.name).exists():
+                raise ValidationError('Field with name "%s" already exists.' % self.name)
             return
 
         old_model = DynamicSchemaField.objects.get(pk=self.id)
