@@ -151,3 +151,17 @@ LOGGING = {
         },
     }
 }
+
+try:
+    import os.path
+    INSTALLED_APPS += (
+        'django_nose',
+    )
+    TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+
+    NOSE_ARGS = ['--cover-package=' + ','.join(
+        app for app in INSTALLED_APPS
+            if os.path.exists(os.path.join(ROOT_DIR, '..', app))
+    )]
+except ImportError:
+    pass
