@@ -4,8 +4,9 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.core.urlresolvers import reverse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+from django.contrib.contenttypes.models import ContentType
 
-from dynamicmodel.models import DynamicSchema, DynamicSchemaField
+from dynamicmodel.models import DynamicSchema, DynamicSchemaField, DynamicModel
 
 from .admin_forms import DynamicSchemaFieldForm, DynamicSchemaDropdownFieldForm
 
@@ -103,4 +104,24 @@ def dynamic_schema_field_type_select(request):
         'admin/dynamicmodel/dynamicschema/partials/dynamic_schema_field_type_select.html', {
             'options': options
         })
+    return json_response({'html': rendered_select})
+
+
+@login_required
+@ajax_required
+def dynamic_schema_model_type_values(request, ct_id):
+    model = get_object_or_404(ContentType, id=ct_id).model_class()
+
+    choices = []
+    rendered_select = ''
+
+    if issubclass(model, DynamicModel):
+        choices = model.get_schema_type_choices()
+
+    if choices:
+        rendered_select = render_to_string(
+            'admin/dynamicmodel/dynamicschema/partials/dynamic_schema_model_type_select.html', {
+                'options': choices
+            })
+
     return json_response({'html': rendered_select})

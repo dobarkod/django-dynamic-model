@@ -12,6 +12,9 @@ class DynamicSchemaAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super(DynamicSchemaAdmin, self).get_urls()
         custom_urls = patterns('dynamicmodel.admin_views',
+            url(r'^ct/(?P<ct_id>\d+)/choices/$',
+                'dynamic_schema_model_type_values',
+                name='dynamicmodel_dynamicschema_model_type_values'),
             url(r'^(?P<schema_id>\d+)/field_list/$',
                 'dynamic_schema_field_list',
                 name='dynamicmodel_dynamicschema_field_list'),

@@ -53,8 +53,13 @@ class DynamicModel(models.Model):
             type_value = getattr(self, self.get_schema_type_descriptor())
         return DynamicSchema.get_for_model(self, type_value)
 
-    def get_schema_type_descriptor(self):
+    @staticmethod
+    def get_schema_type_descriptor():
         return ''
+
+    @staticmethod
+    def get_schema_type_choices():
+        return []
 
     def __getattr__(self, attr_name):
         if attr_name in self.extra_fields:
