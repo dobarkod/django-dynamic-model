@@ -1,22 +1,26 @@
-<div class="module results">
-    <table style="width: 100%;">
-        <thead>
-            <tr>
-                <th>Field name</th>
-                <th>Field type</th>
-                <th>Display name</th>
-                <th>Is required?</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for el in list %}
-                <tr class="field-list-row" data-object-id="{{ el.id }}" data-object-field-type="{{ el.field_type }}">
-                    <td>{{ el.name }}</td>
-                    <td>{{ el.get_field_type_display }}</td>
-                    <td>{{ el.display_label }}</td>
-                    <td>{{ el.required }}</td>
+{% with l=list %}
+{% if l %}
+    <div class="module results">
+        <table style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>Field name</th>
+                    <th>Field type</th>
+                    <th>Display name</th>
+                    <th>Is required?</th>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+            </thead>
+            <tbody>
+                {% for el in l %}
+                    <tr class="field-list-row" data-object-id="{{ el.id }}" data-object-field-type="{{ el.field_type }}">
+                        <td>{{ el.name }}</td>
+                        <td>{{ el.get_field_type_display }}</td>
+                        <td>{{ el.display_label }}</td>
+                        <td>{{ el.required }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+{% endwith %}
