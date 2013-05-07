@@ -21,9 +21,13 @@ class DynamicSchemaDropdownFieldForm(DynamicSchemaFieldForm):
     def save(self, force_insert=False, force_update=False, commit=True):
         m = super(DynamicSchemaDropdownFieldForm, self).save(commit=False)
 
+        choices = []
+        for el in self.cleaned_data.get('options').split(','):
+            stripped_el = el.strip()
+            choices.append(stripped_el)
+
         m.extra = {
-            'choices': [(el, el) for el in
-                self.cleaned_data.get('options').split(',')]
+            'choices': choices
         }
 
         if commit:
