@@ -42,10 +42,12 @@ class DynamicModel(models.Model):
         _schema = self.get_schema()
         for field in _schema.fields.all():
             yield field.name, field.verbose_name, field.field_type, \
-                field.required, field.extra, self.get_extra_field_value(field.name)
+                field.required, field.extra, self.get_extra_field_value(
+                    field.name)
 
     def get_extra_fields_names(self):
-        return [name for name, verbose_name, field_type, required, extra, value in self.get_extra_fields()]
+        return [name for name, verbose_name, field_type, required, extra,
+            value in self.get_extra_fields()]
 
     def get_schema(self):
         type_value = ''
@@ -93,10 +95,13 @@ class DynamicForm(forms.ModelForm):
         super(DynamicForm, self).__init__(*args, **kwargs)
 
         if not isinstance(self.instance, DynamicModel):
-            raise ValueError("DynamicForm.Meta.model must be inherited from DynamicModel")
+            raise ValueError(
+                "DynamicForm.Meta.model must be inherited from DynamicModel")
 
         if self.instance and hasattr(self.instance, 'get_extra_fields'):
-            for name, verbose_name, field_type, req, extra, value in self.instance.get_extra_fields():
+            for name, verbose_name, field_type, req, extra, value in \
+                self.instance.get_extra_fields():
+
                 field_mapping_case = dict(self.field_mapping)[field_type]
 
                 widget = field_mapping_case.get('widget')
@@ -119,8 +124,8 @@ class DynamicForm(forms.ModelForm):
 
         extra_fields = {}
 
-        extra_fields_names = [name for name, verbose_name, field_type, req, extra, value
-            in self.instance.get_extra_fields()]
+        extra_fields_names = [name for name, verbose_name, field_type, req,
+            extra, value in self.instance.get_extra_fields()]
 
         for cleaned_key in self.cleaned_data.keys():
             if cleaned_key in extra_fields_names:
@@ -292,8 +297,10 @@ class DynamicSchemaField(models.Model):
             raise ValidationError("Wrong field_type")
 
         if not self.id:
-            if DynamicSchemaField.objects.filter(schema=self.schema, name=self.name).exists():
-                raise ValidationError('Field with name "%s" already exists.' % self.name)
+            if DynamicSchemaField.objects.filter(schema=self.schema,
+                name=self.name).exists():
+                raise ValidationError('Field with name "%s" already exists.' %
+                    self.name)
             return
 
         old_model = DynamicSchemaField.objects.get(pk=self.id)
