@@ -29,3 +29,9 @@ class DynamicSchemaDropdownFieldForm(DynamicSchemaFieldForm):
         if commit:
             m.save()
         return m
+
+
+class DynamicSchemaBooleanFieldForm(DynamicSchemaFieldForm):
+    class Meta:
+        model = DynamicSchemaField
+        exclude = ['schema', 'field_type', 'extra', 'required']

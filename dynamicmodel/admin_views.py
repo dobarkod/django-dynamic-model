@@ -8,7 +8,8 @@ from django.contrib.contenttypes.models import ContentType
 
 from dynamicmodel.models import DynamicSchema, DynamicSchemaField, DynamicModel
 
-from .admin_forms import DynamicSchemaFieldForm, DynamicSchemaDropdownFieldForm
+from .admin_forms import (DynamicSchemaFieldForm,
+    DynamicSchemaDropdownFieldForm, DynamicSchemaBooleanFieldForm)
 
 import json
 
@@ -76,6 +77,8 @@ def dynamic_schema_field_form(request, schema_id, field_type, field_id=None):
 
     if field_type == 'Dropdown':
         form_class = DynamicSchemaDropdownFieldForm
+    elif field_type == 'BooleanField':
+        form_class = DynamicSchemaBooleanFieldForm
     else:
         form_class = DynamicSchemaFieldForm
 
