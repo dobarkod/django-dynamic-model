@@ -3,9 +3,9 @@ Tests for DynamicModel, DynamicModelWithSchema and DynamicForm
 """
 
 from django.test import TestCase
-from .models import DynamicModel, DynamicForm, DynamicSchema, \
+from dynamicmodel.models import DynamicModel, DynamicForm, DynamicSchema, \
     DynamicSchemaField
-from django.db import models, connection
+from django.db import models
 from django.core.exceptions import ValidationError
 
 from django.core.cache import cache
@@ -74,12 +74,6 @@ class DynamicModelTest(TestCase):
 
     def clear(self):
         cache.clear()
-        M2MModel.objects.all().delete()
-        TestModel.objects.all().delete()
-        FalseModel.objects.all().delete()
-        TypelessModel.objects.all().delete()
-        DynamicSchema.objects.all().delete()
-        DynamicSchemaField.objects.all().delete()
 
     def setUp(self):
         self.clear()
@@ -253,143 +247,114 @@ class DynamicModelCachingTest(TestCase):
 
     def clear(self):
         cache.clear()
-        M2MModel.objects.all().delete()
-        TestModel.objects.all().delete()
-        FalseModel.objects.all().delete()
-        TypelessModel.objects.all().delete()
-        DynamicSchema.objects.all().delete()
-        DynamicSchemaField.objects.all().delete()
 
     def setUp(self):
         self.clear()
 
     def test_num_of_queries_on_related(self):
-        with self.settings(DEBUG=True):
-            m2m = M2MModel.objects.create()
-            DynamicSchemaField.objects.create(
-                schema=DynamicSchema.get_for_model(TestModel), name='email',
-                field_type='EmailField')
-            m2m.testmodels.add(
-                TestModel.objects.create(about='one'),
-                TestModel.objects.create(about='two'),
-                TestModel.objects.create(about='three'),
-                TestModel.objects.create(about='four'),
-                TestModel.objects.create(about='five'),
-                TestModel.objects.create(about='six'),
-            )
-            start_q_num = len(connection.queries)
+        m2m = M2MModel.objects.create()
+        DynamicSchemaField.objects.create(
+            schema=DynamicSchema.get_for_model(TestModel), name='email',
+            field_type='EmailField')
+        m2m.testmodels.add(
+            TestModel.objects.create(about='one'),
+            TestModel.objects.create(about='two'),
+            TestModel.objects.create(about='three'),
+            TestModel.objects.create(about='four'),
+            TestModel.objects.create(about='five'),
+            TestModel.objects.create(about='six'),
+        )
+        with self.assertNumQueries(1):
             [(el.about, el.email) for el in m2m.testmodels.all()]
-            end_q_num = len(connection.queries)
-            self.assertEqual(end_q_num - start_q_num, 1)
 
     def test_num_of_queries_on_related_with_dependency(self):
         """ integration test
         test cache functionality in more complex environment """
 
-        with self.settings(DEBUG=True):
-            schema = DynamicSchema.get_for_model(TestModel)
-            schema.add_field("field", "IntegerField")
-            start_q_num = len(connection.queries)
+        schema = DynamicSchema.get_for_model(TestModel)
+        schema.add_field("field", "IntegerField")
+        with self.assertNumQueries(0):
             self.assertEqual(
                 DynamicSchema.get_for_model(TestModel).fields.all()[0].name,
                 "field")
-            end_q_num = len(connection.queries)
-            self.assertEqual(end_q_num - start_q_num, 0)
 
-            schema = DynamicSchema.get_for_model(TestModel)
-            schema.remove_field("field")
-            start_q_num = len(connection.queries)
+        schema = DynamicSchema.get_for_model(TestModel)
+        schema.remove_field("field")
+        with self.assertNumQueries(0):
             self.assertEqual(
                 DynamicSchema.get_for_model(TestModel).fields.count(), 0)
-            end_q_num = len(connection.queries)
-            self.assertEqual(end_q_num - start_q_num, 0)
 
-            m2m = M2MModel.objects.create()
-            DynamicSchemaField.objects.create(
-                schema=DynamicSchema.get_for_model(TestModel), name='email',
-                field_type='EmailField')
-            m2m.testmodels.add(
-                TestModel.objects.create(about='one'),
-                TestModel.objects.create(about='two'),
-                TestModel.objects.create(about='three'),
-                TestModel.objects.create(about='four'),
-                TestModel.objects.create(about='five'),
-                TestModel.objects.create(about='six'),
-            )
-            start_q_num = len(connection.queries)
+        m2m = M2MModel.objects.create()
+        DynamicSchemaField.objects.create(
+            schema=DynamicSchema.get_for_model(TestModel), name='email',
+            field_type='EmailField')
+        m2m.testmodels.add(
+            TestModel.objects.create(about='one'),
+            TestModel.objects.create(about='two'),
+            TestModel.objects.create(about='three'),
+            TestModel.objects.create(about='four'),
+            TestModel.objects.create(about='five'),
+            TestModel.objects.create(about='six'),
+        )
+        with self.assertNumQueries(1):
             [(el.about, el.email) for el in m2m.testmodels.all()]
-            end_q_num = len(connection.queries)
-            self.assertEqual(end_q_num - start_q_num, 1)
 
     def test_second_schema_fetching_doesnt_hit_db(self):
-        with self.settings(DEBUG=True):
+        DynamicSchema.get_for_model(TestModel)
+        with self.assertNumQueries(0):
             DynamicSchema.get_for_model(TestModel)
-            start_q_num = len(connection.queries)
-            DynamicSchema.get_for_model(TestModel)
-            end_q_num = len(connection.queries)
-            self.assertEqual(end_q_num - start_q_num, 0)
 
     def test_cache_updated_after_adding_schema_field(self):
-        with self.settings(DEBUG=True):
-            schema = DynamicSchema.get_for_model(TestModel)
-            schema.add_field("field", "IntegerField")
-            start_q_num = len(connection.queries)
+        schema = DynamicSchema.get_for_model(TestModel)
+        schema.add_field("field", "IntegerField")
+        with self.assertNumQueries(0):
             self.assertEqual(
                 DynamicSchema.get_for_model(TestModel).fields.all()[0].name,
                 "field")
-            end_q_num = len(connection.queries)
-            self.assertEqual(end_q_num - start_q_num, 0)
 
     def test_cache_updated_after_removing_schema_field(self):
-        with self.settings(DEBUG=True):
-            schema = DynamicSchema.get_for_model(TestModel)
-            schema.add_field("field", "IntegerField")
-            schema.remove_field("field")
-            start_q_num = len(connection.queries)
+        schema = DynamicSchema.get_for_model(TestModel)
+        schema.add_field("field", "IntegerField")
+        schema.remove_field("field")
+        with self.assertNumQueries(0):
             self.assertEqual(
                 DynamicSchema.get_for_model(TestModel).fields.count(), 0)
-            end_q_num = len(connection.queries)
-            self.assertEqual(end_q_num - start_q_num, 0)
 
     def test_delete_schema_qs_clears_cache(self):
-        with self.settings(DEBUG=True):
-            DynamicSchema.get_for_model(TestModel)
-            self.assertIsNotNone(
-                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
-            DynamicSchema.objects.all().delete()
-            self.assertIsNone(
-                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+        DynamicSchema.get_for_model(TestModel)
+        self.assertIsNotNone(
+            cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+        DynamicSchema.objects.all().delete()
+        self.assertIsNone(
+            cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
 
     def test_delete_schema_qs_with_diff_types_clears_cache(self):
-        with self.settings(DEBUG=True):
+        DynamicSchema.get_for_model(TestModel)
+        DynamicSchema.get_for_model(TestModel, 'some_value')
 
-            DynamicSchema.get_for_model(TestModel)
-            DynamicSchema.get_for_model(TestModel, 'some_value')
+        # there is cached value
+        self.assertIsNotNone(
+            cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+        self.assertIsNotNone(
+            cache.get(DynamicSchema.get_cache_key_static(TestModel,
+                'some_value')))
 
-            # there is cached value
-            self.assertIsNotNone(
-                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
-            self.assertIsNotNone(
-                cache.get(DynamicSchema.get_cache_key_static(TestModel,
-                    'some_value')))
+        DynamicSchema.objects.all().delete()
 
-            DynamicSchema.objects.all().delete()
-
-            # there is no cached value
-            self.assertIsNone(
-                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
-            self.assertIsNone(
-                cache.get(DynamicSchema.get_cache_key_static(TestModel,
-                    'some_value')))
+        # there is no cached value
+        self.assertIsNone(
+            cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+        self.assertIsNone(
+            cache.get(DynamicSchema.get_cache_key_static(TestModel,
+                'some_value')))
 
     def test_delete_schema_clears_cache(self):
-        with self.settings(DEBUG=True):
-            schema = DynamicSchema.get_for_model(TestModel)
-            self.assertIsNotNone(
-                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
-            schema.delete()
-            self.assertIsNone(
-                cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+        schema = DynamicSchema.get_for_model(TestModel)
+        self.assertIsNotNone(
+            cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
+        schema.delete()
+        self.assertIsNone(
+            cache.get(DynamicSchema.get_cache_key_static(TestModel, '')))
 
 
 # testing DynamicModel and DynamicForm
@@ -397,12 +362,6 @@ class DynamicFormTest(TestCase):
 
     def clear(self):
         cache.clear()
-        M2MModel.objects.all().delete()
-        TestModel.objects.all().delete()
-        FalseModel.objects.all().delete()
-        TypelessModel.objects.all().delete()
-        DynamicSchema.objects.all().delete()
-        DynamicSchemaField.objects.all().delete()
 
     def setUp(self):
         """prepare DynamicFormTest environment"""

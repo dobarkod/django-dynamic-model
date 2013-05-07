@@ -8,10 +8,10 @@ build:
 	$(SETUP) build
 
 test:
-	cd testproject && python manage.py test dynamicmodel
+	cd testproject && python manage.py test testapp
 
 coverage:
-	cd testproject && coverage run manage.py test dynamicmodel && coverage html
+	cd testproject && coverage run manage.py test testapp && coverage html
 
 upload: build coverage docs
 	$(SETUP) sdist upload

@@ -116,6 +116,7 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'dynamicmodel',
+    'testapp',
     # Uncomment the next line to enable the admin:
     # 'django.contrib.admin',
     # Uncomment the next line to enable admin documentation:
@@ -150,3 +151,17 @@ LOGGING = {
         },
     }
 }
+
+try:
+    import os.path
+    INSTALLED_APPS += (
+        'django_nose',
+    )
+    TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+
+    NOSE_ARGS = ['--cover-package=' + ','.join(
+        app for app in INSTALLED_APPS
+            if os.path.exists(os.path.join(ROOT_DIR, '..', app))
+    )]
+except ImportError:
+    pass

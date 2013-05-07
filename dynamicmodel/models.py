@@ -42,10 +42,12 @@ class DynamicModel(models.Model):
         _schema = self.get_schema()
         for field in _schema.fields.all():
             yield field.name, field.verbose_name, field.field_type, \
-                field.required, self.get_extra_field_value(field.name)
+                field.required, field.extra, self.get_extra_field_value(
+                    field.name)
 
     def get_extra_fields_names(self):
-        return [name for name, verbose_name, field_type, required, value in self.get_extra_fields()]
+        return [name for name, verbose_name, field_type, required, extra,
+            value in self.get_extra_fields()]
 
     def get_schema(self):
         type_value = ''
@@ -53,8 +55,13 @@ class DynamicModel(models.Model):
             type_value = getattr(self, self.get_schema_type_descriptor())
         return DynamicSchema.get_for_model(self, type_value)
 
-    def get_schema_type_descriptor(self):
+    @staticmethod
+    def get_schema_type_descriptor():
         return ''
+
+    @staticmethod
+    def get_schema_type_choices():
+        return []
 
     def __getattr__(self, attr_name):
         if attr_name in self.extra_fields:
@@ -79,30 +86,46 @@ class DynamicForm(forms.ModelForm):
         ('CharField', {'field': forms.CharField}),
         ('TextField', {'field': forms.CharField, 'widget': forms.Textarea}),
         ('EmailField', {'field': forms.EmailField}),
+        ('Dropdown', {'field': forms.CharField, 'widget': forms.Select}),
+        ('NullBooleanField', {'field': forms.NullBooleanField}),
+        ('BooleanField', {'field': forms.BooleanField}),
     ]
 
     def __init__(self, *args, **kwargs):
         super(DynamicForm, self).__init__(*args, **kwargs)
 
         if not isinstance(self.instance, DynamicModel):
-            raise ValueError("DynamicForm.Meta.model must be inherited from DynamicModel")
+            raise ValueError(
+                "DynamicForm.Meta.model must be inherited from DynamicModel")
 
         if self.instance and hasattr(self.instance, 'get_extra_fields'):
-            for name, verbose_name, field_type, req, value in self.instance.get_extra_fields():
+            for name, verbose_name, field_type, req, extra, value in \
+                self.instance.get_extra_fields():
+
                 field_mapping_case = dict(self.field_mapping)[field_type]
-                self.fields[name] = field_mapping_case['field'](required=req,
-                    widget=field_mapping_case.get('widget'),
-                    initial=self.instance.get_extra_field_value(name),
-                    label=verbose_name.capitalize() if verbose_name else \
-                        " ".join(name.split("_")).capitalize())
+
+                widget = field_mapping_case.get('widget')
+
+                if extra and extra.get('choices'):
+                    widget = widget(choices=extra.get('choices'))
+
+                field_kwargs = {
+                    'required': req,
+                    'widget': widget,
+                    'initial': self.instance.get_extra_field_value(name),
+                    'label': verbose_name.capitalize() if verbose_name else
+                        " ".join(name.split("_")).capitalize(),
+                }
+
+                self.fields[name] = field_mapping_case['field'](**field_kwargs)
 
     def save(self, force_insert=False, force_update=False, commit=True):
         m = super(DynamicForm, self).save(commit=False)
 
         extra_fields = {}
 
-        extra_fields_names = [name for name, verbose_name, field_type, req, value \
-            in self.instance.get_extra_fields()]
+        extra_fields_names = [name for name, verbose_name, field_type, req,
+            extra, value in self.instance.get_extra_fields()]
 
         for cleaned_key in self.cleaned_data.keys():
             if cleaned_key in extra_fields_names:
@@ -229,6 +252,9 @@ class DynamicSchemaField(models.Model):
         ('CharField', 'One line of text'),
         ('TextField', 'Multiline text input'),
         ('EmailField', 'Email'),
+        ('Dropdown', 'Dropdown'),
+        ('NullBooleanField', 'Yes / No / Unknown field'),
+        ('BooleanField', 'Yes / No field'),
     ]
 
     class Meta:
@@ -241,7 +267,13 @@ class DynamicSchemaField(models.Model):
         message="Name should contain only alphanumeric characters and underscores.")])
     verbose_name = models.CharField(max_length=100, null=True, blank=True)
     field_type = models.CharField(max_length=100, choices=FIELD_TYPES)
-    required = models.BooleanField(default=True)
+    required = models.BooleanField(default=False)
+    extra = JSONField(default='{}')
+
+    @property
+    def display_label(self):
+        ret_val = self.verbose_name or self.name.replace('_', ' ')
+        return ret_val.capitalize()
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -265,12 +297,18 @@ class DynamicSchemaField(models.Model):
             raise ValidationError("Wrong field_type")
 
         if not self.id:
+            if DynamicSchemaField.objects.filter(schema=self.schema,
+                name=self.name).exists():
+                raise ValidationError('Field with name "%s" already exists.' %
+                    self.name)
             return
 
         old_model = DynamicSchemaField.objects.get(pk=self.id)
 
         fields = [f.name for f in DynamicSchemaField._meta.fields]
         fields.remove('verbose_name')
+        fields.remove('required')
+        fields.remove('extra')
 
         for field_name in fields:
             if old_model.__dict__.get(field_name) != self.__dict__.get(field_name):
