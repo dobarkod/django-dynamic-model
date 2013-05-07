@@ -262,7 +262,7 @@ class DynamicSchemaField(models.Model):
         message="Name should contain only alphanumeric characters and underscores.")])
     verbose_name = models.CharField(max_length=100, null=True, blank=True)
     field_type = models.CharField(max_length=100, choices=FIELD_TYPES)
-    required = models.BooleanField(default=True)
+    required = models.BooleanField(default=False)
     extra = JSONField(default='{}')
 
     @property
