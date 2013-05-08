@@ -24,7 +24,7 @@ class DynamicSchemaDropdownFieldForm(DynamicSchemaFieldForm):
         choices = []
         for el in self.cleaned_data.get('options').split(','):
             stripped_el = el.strip()
-            choices.append(stripped_el)
+            choices.append((stripped_el, stripped_el))
 
         m.extra = {
             'choices': choices
