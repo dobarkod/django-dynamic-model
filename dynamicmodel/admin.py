@@ -39,7 +39,7 @@ class DynamicSchemaAdmin(admin.ModelAdmin):
 
         dynamic_schema_content_type_ids = [el.id for el in
             ContentType.objects.all()
-            if issubclass(el.model_class(), DynamicModel)]
+            if el.model_class() and issubclass(el.model_class(), DynamicModel)]
 
         context['adminform'].form.fields['model'].queryset = \
             ContentType.objects.filter(id__in=dynamic_schema_content_type_ids)
